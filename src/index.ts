@@ -1,10 +1,16 @@
-import * as pcap from 'pcap';
+import KafkaService from './service/KafkaService';
+import PacketCaptureService from './service/PacketCaptureService';
 
-const pcapSession: any = pcap.createSession('en0', {filter: 'tcp'});
+const kafkaService = new KafkaService('packet-capture', ['localhost:9092']);
+const packetCaptureService = new PacketCaptureService('en0', kafkaService);
 
-console.log("Listening on " + pcapSession.device_name);
+const startServices = async () => {
+    try {
+        await kafkaService.connect();
+        packetCaptureService.startCapture();
+    } catch (error) {
+        console.error('Error starting services:', error);
+    }
+};
 
-pcapSession.on('packet', (rawPacket: any) => {
-    const packet = pcap.decode.packet(rawPacket);
-    console.log("패킷 캡처됨: ", packet);
-});
+startServices();
