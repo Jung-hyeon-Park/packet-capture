@@ -6,9 +6,14 @@ class PacketCaptureService {
     private kafkaService: KafkaService;
 
     constructor(interfaceName: string, kafkaService: KafkaService) {
-        this.pcapSession = pcap.createSession(interfaceName, { filter: 'tcp' });
-        this.kafkaService = kafkaService;
-        console.log("Listening on " + this.pcapSession.device_name);
+        try {
+            this.pcapSession = pcap.createSession(interfaceName, { filter: 'tcp' });
+            this.kafkaService = kafkaService;
+            console.log("Listening on " + this.pcapSession.device_name);
+        } catch (error) {
+            console.error("Error creating pcap session:", error);
+            process.exit(1);
+        }
     }
 
 

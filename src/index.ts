@@ -1,7 +1,8 @@
 import KafkaService from './service/KafkaService';
 import PacketCaptureService from './service/PacketCaptureService';
 
-const kafkaService = new KafkaService('packet-capture', ['localhost:9092']);
+const kafkaBrokers = ['kafka-1:19092'];
+const kafkaService = new KafkaService('packet-capture', kafkaBrokers);
 const packetCaptureService = new PacketCaptureService('en0', kafkaService);
 
 const startServices = async () => {

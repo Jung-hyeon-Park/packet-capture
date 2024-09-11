@@ -18,7 +18,7 @@ class KafkaService {
             topic,
             messages: [{ value: message }],
         });
-        console.log('Message sent:', message);
+        // console.log('Message sent:', message);
     }
 }
 

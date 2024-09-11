@@ -1,36 +1,87 @@
 version: '3.8'
 
 services:
-  zookeeper:
-    image: wurstmeister/zookeeper
-    container_name: packet-zookeeper
-    ports:
-      - "2181:2181"
 
-  kafka:
-    image: wurstmeister/kafka
-    container_name: packet-kafka
-    depends_on:
-      - zookeeper
+  zookeeper-1:
+    image: confluentinc/cp-zookeeper
+    container_name: zookeeper-1
     ports:
-      - "9092:9092"
+      - "12181:2181"
     environment:
-      KAFKA_ADVERTISED_LISTENERS: INSIDE://packet-kafka:9093,OUTSIDE://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
-      KAFKA_LISTENERS: INSIDE://0.0.0.0:9093,OUTSIDE://0.0.0.0:9092
-      KAFKA_LISTENER_NAMES: INSIDE,OUTSIDE
-      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
-      KAFKA_ZOOKEEPER_CONNECT: packet-zookeeper:2181
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_SERVERS: zookeeper-1:12888:13888
+    networks:
+      - kafka_network
+
+  kafka-1:
+    image: confluentinc/cp-kafka
+    container_name: kafka-1
+    ports:
+      - "19092:19092"
+      - "19094:19094"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:19092,EXTERNAL://0.0.0.0:19094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-1:19092,EXTERNAL://localhost:19094
+      KAFKA_LISTENER_NAMES: INTERNAL,EXTERNAL
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181
       KAFKA_LOG_RETENTION_HOURS: '168'
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_JMX_PORT: 9999
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper-1
+    networks:
+      - kafka_network
 
-  kafka-ui:
-    image: provectuslabs/kafka-ui
-    container_name: packet-kafka-ui
+  kafka-exporter:
+    image: danielqsj/kafka-exporter
+    container_name: kafka-exporter
     ports:
-      - "8989:8080"
+      - "9308:9308"
+    command: ["--kafka.server=kafka-1:19092"]
+    depends_on:
+      - kafka-1
     restart: always
+    networks:
+      - kafka_network
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - kafka-exporter
+    networks:
+      - kafka_network
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
     environment:
-      - KAFKA_CLUSTERS_0_NAME=local
-      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=INSIDE://packet-kafka:9093
-      - KAFKA_CLUSTERS_0_ZOOKEEPER=packet-zookeeper:2181
+      GF_SECURITY_ADMIN_USER: parkjh
+      GF_SECURITY_ADMIN_PASSWORD: parkjh123
+    depends_on:
+      - prometheus
+    networks:
+      - kafka_network
+
+volumes:
+  grafana-data:
+
+networks:
+  kafka_network:
+    driver: bridge
